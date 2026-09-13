@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block body %}
+<section class="card">
+  <h1>로컬 모델 서버 <span class="badge {{ 'done' if llm_up else 'failed' }}">{{ '실행 중' if llm_up else '꺼짐' }}</span></h1>
+  <p class="muted">llama.cpp + Qwen3-4B, 127.0.0.1:8081, CPU 6 thread·4k 컨텍스트(RSS 약 4.6GB). 설명 생성과 Open WebUI 채팅에만 필요합니다. 점검 시작 시 꺼져 있으면 자동으로 켜지고, 작업이 끝나면 여기서 끄면 다른 프로젝트에 CPU·메모리를 돌려줍니다.</p>
+  {% if llm_window %}<p class="error">다른 프로젝트의 사용 창이 열려 있습니다: {{ llm_window }} — 창이 닫힐 때까지 서버를 끄거나 설명 생성 점검을 시작하지 않습니다.</p>{% endif %}
+  {% if msg == 'window' %}<p class="error">다른 프로젝트의 모델 사용 창이 열려 있어 요청을 보류했습니다.</p>{% endif %}
+  {% if msg == 'verify' %}<p class="error">검수 모드(VERIFY_MODE=1)로 뜬 앱이라 모델 서버를 시작하지 않습니다.</p>{% endif %}
+  <div class="row"><form method="post" action="/llm/start"><button type="submit" {% if llm_up %}disabled{% endif %}>켜기</button></form><form method="post" action="/llm/stop"><button type="submit" {% if not llm_up %}disabled{% endif %}>끄기</button></form></div>
+</section>
+
+<section class="card" id="new">
+  <h1>새 점검 시작</h1>
+  {% if prefill %}<p class="muted">점검 <a href="/runs/{{ prefill_from }}">{{ prefill_from }}</a>의 조건으로 채워져 있다. 바꿀 것만 고치고 시작하면 된다.</p>{% endif %}
+  <p class="muted">같은 문서·같은 질문을 두 Haystack 버전에서 실행해 검색 결과 차이를 찾고, 변경 이유를 원문 근거로 설명합니다. 모든 것이 이 노트북 안에서만 돕니다.</p>
+  <form method="post" action="/runs" class="grid">
+    <label>이전 버전 환경
+      <select name="before">{% for e in envs %}<option value="{{ e.label }}" {% if (prefill and prefill.before == e.label) or (not prefill and e.label == 'hs231') %}selected{% endif %}>{{ e.label }} — haystack-ai {{ e.version }}</option>{% endfor %}</select></label>
+    <label>새 버전 환경
+      <select name="after">{% for e in envs %}<option value="{{ e.label }}" {% if (prefill and prefill.after == e.label) or (not prefill and e.label == 'hs31') %}selected{% endif %}>{{ e.label }} — haystack-ai {{ e.version }}</option>{% endfor %}</select></label>
+    <label>문서 묶음 (corpus/)
+      <select name="corpus">{% for c in corpora %}<option value="{{ c }}" {% if (prefill and prefill.corpus == c) or (not prefill and c == 'version-3.1') %}selected{% endif %}>Haystack docs {{ c }}</option>{% endfor %}</select></label>
+    <label>질문 세트 (eval/questions.yaml, {{ n_questions }}문항)
+      <select name="split">{% for sv, sl in [('all','전체'),('dev','dev (개발용)'),('eval','eval (보류용)')] %}<option value="{{ sv }}" {% if prefill and prefill.split == sv %}selected{% endif %}>{{ sl }}</option>{% endfor %}</select></label>
+    <label>top-k <input type="number" name="k" value="{{ prefill.k if prefill else 5 }}" min="1" max="20"></label>
+    <label class="check"><input type="checkbox" name="explain" {% if not prefill or prefill.explain %}checked{% endif %}> 변경 이유 설명 생성 (로컬 LLM, 분류당 15~30초)</label>
+    <label class="check"><input type="checkbox" name="retrieval" {% if not prefill or prefill.retrieval %}checked{% endif %}> Open WebUI 검색 기준선도 함께 측정</label>
+    <button type="submit" class="primary">점검 시작</button>
+  </form>
+</section>
+
+<section class="card">
+  <h1>점검 내역</h1>
+  {% if not runs %}<p class="muted">아직 점검이 없습니다.</p>{% endif %}
+  <table>
+    <thead><tr><th>점검</th><th>상태</th><th>버전</th><th>조건</th><th>결과 (한 점검 안)</th><th>검색 recall@3 dev / eval</th><th>신고</th><th></th></tr></thead>
+    <tbody>
+    {% for r in runs %}
+      <tr>
+        <td><a href="/runs/{{ r.id }}">{{ r.id }}</a><br><small class="muted">{{ r.created_at }}{% if r.parent %} · 재실행 of {{ r.parent }}{% endif %}</small></td>
+        <td><span class="badge {{ r.status }}">{{ r.status }}</span>{% if r.row %}<br><small class="{{ 'muted' if r.row.kind == 'running' else 'stopped-at' }}">{{ r.row.text }}</small>{% endif %}</td>
+        <td>{{ (r.versions or {}).get('before','?') }} → {{ (r.versions or {}).get('after','?') }}</td>
+        <td><small>{{ r.conditions.corpus }} · {{ r.conditions.split }} · k={{ r.conditions.k }}</small></td>
+        <td>{% if r.state %}<span class="tag {{ 'ok' if r.state in ['ALL_SAME','IDONLY'] else 'changed' if r.state in ['GLOBAL_ERROR','NO_RESULT','EMPTY','PARTIAL'] else 'warn' }}">{{ state_label[r.state] }}</span>{% if r.counts and r.state in ['ALL_SAME','IDONLY','CHANGED','PARTIAL'] %} <small class="muted">동일 {{ r.counts.same }} · ID만 {{ r.counts.idonly }} · 변화 {{ r.counts.changed }} · 판정불가 {{ r.counts.undet }}</small>{% endif %}{% else %}—{% endif %}</td>
+        <td>{{ r.recall_dev if r.recall_dev is not none else '—' }} / {{ r.recall_eval if r.recall_eval is not none else '—' }}</td>
+        <td>{{ r.n_feedback }}</td>
+        <td class="row-actions">{% if r.status in ['queued','running','cancelling'] %}<a href="/runs/{{ r.id }}#progress">진행 보기</a>
+          {% elif r.status in ['failed','cancelled'] %}<a href="/runs/{{ r.id }}#remaining">남은 결과 보고 이어서/다시</a><form method="post" action="/runs/{{ r.id }}/rerun"><button type="submit" title="같은 조건으로 처음부터">같은 조건 재실행</button></form>
+          {% elif r.status == 'interrupted' %}<a href="/runs/{{ r.id }}#remaining">왜 가져오지 않는지</a><form method="post" action="/runs/{{ r.id }}/rerun"><button type="submit" title="같은 조건으로 처음부터">같은 조건 재실행</button></form>
+          {% elif r.action %}<a href="{{ r.action.href }}">{{ r.action.label }}</a><form method="post" action="/runs/{{ r.id }}/rerun"><button type="submit" title="같은 조건으로 다시 실행">같은 조건 재실행</button></form>
+          {% else %}<form method="post" action="/runs/{{ r.id }}/rerun"><button type="submit" title="같은 조건으로 다시 실행">같은 조건 재실행</button></form>{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

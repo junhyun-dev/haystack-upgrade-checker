@@ -1,0 +1,54 @@
+--- a/open_webui/retrieval/utils.py
++++ b/open_webui/retrieval/utils.py
+@@ -8,6 +8,9 @@
+ # agent-project local patch 0001: optional per-file de-duplication of retrieval results (off = upstream behavior)
+ RAG_DEDUP_BY_FILE = os.getenv('RAG_DEDUP_BY_FILE', 'false').lower() == 'true'
+ RAG_DEDUP_CANDIDATE_MULTIPLIER = max(1, int(os.getenv('RAG_DEDUP_CANDIDATE_MULTIPLIER', '4') or 4))
++# agent-project local patch 0002: in hybrid search without a reranking model, keep the BM25+vector fused (RRF) order
++# instead of re-sorting candidates by dense similarity (off = upstream behavior)
++RAG_HYBRID_KEEP_FUSED_ORDER = os.getenv('RAG_HYBRID_KEEP_FUSED_ORDER', 'false').lower() == 'true'
+ import re
+ import time
+ from typing import Awaitable, Optional, Union
+@@ -457,7 +460,7 @@
+ 
+         compressor = RerankCompressor(
+             embedding_function=embedding_function,
+-            top_n=k_reranker,
++            top_n=(max(k_reranker, k_cand) if RAG_HYBRID_KEEP_FUSED_ORDER and reranking_function is None else k_reranker),
+             reranking_function=reranking_function,
+             r_score=r,
+         )
+@@ -549,12 +552,13 @@
+             texts=bm25_texts,
+             metadatas=bm25_metadatas,
+         )
+-        bm25_retriever.k = k
++        k_cand = k * RAG_DEDUP_CANDIDATE_MULTIPLIER if RAG_DEDUP_BY_FILE else k  # local patch 0001/0002
++        bm25_retriever.k = k_cand
+ 
+         vector_search_retriever = VectorSearchRetriever(
+             collection_name=collection_name,
+             embedding_function=embedding_function,
+-            top_k=k,
++            top_k=k_cand,
+         )
+ 
+         # Use CHUNK_HASH_KEY for dedup so enriched BM25 texts don't defeat RRF
+@@ -1785,6 +1789,16 @@
+     ) -> Sequence[Document]:
+         reranking = self.reranking_function is not None
+ 
++        if not reranking and RAG_HYBRID_KEEP_FUSED_ORDER:
++            # local patch 0002: no reranking model -> trust the ensemble (RRF) order; score is a rank-based placeholder
++            final_results = []
++            n = max(1, len(documents))
++            for i, doc in enumerate(documents[: self.top_n]):
++                metadata = dict(doc.metadata)
++                metadata['score'] = 1.0 - (i / n)
++                final_results.append(Document(page_content=doc.page_content, metadata=metadata))
++            return final_results
++
+         scores = None
+         if reranking:
+             scores = await asyncio.to_thread(self.reranking_function, query, documents)

@@ -1,0 +1,7 @@
+fastapi==0.135.1
+uvicorn==0.44.0
+starlette==1.6.0
+Jinja2==3.1.6
+PyYAML==6.0.3
+python-multipart==0.0.32
+Markdown==3.10.3

@@ -1,0 +1,65 @@
+{
+ "diff": {
+  "before": {
+   "label": "hs231",
+   "haystack": "2.31.0"
+  },
+  "after": {
+   "label": "hs31",
+   "haystack": "3.1.1"
+  },
+  "global": [],
+  "queries": [
+   {
+    "id": "q1",
+    "question": "synthetic q1",
+    "classes": [
+     "ID_CHANGED_SAME_CONTENT"
+    ],
+    "n_details": 0,
+    "details": [],
+    "latency_before_s": 0.001,
+    "latency_after_s": 0.001
+   },
+   {
+    "id": "q2",
+    "question": "synthetic q2",
+    "classes": [
+     "ID_CHANGED_SAME_CONTENT"
+    ],
+    "n_details": 0,
+    "details": [],
+    "latency_before_s": 0.001,
+    "latency_after_s": 0.001
+   }
+  ],
+  "summary": {}
+ },
+ "meta": {
+  "status": "done",
+  "conditions": {
+   "split": "all"
+  }
+ },
+ "expected_ids": [
+  "q1",
+  "q2",
+  "q3"
+ ],
+ "expect": {
+  "state": "PARTIAL",
+  "counts": {
+   "same": 0,
+   "idonly": 2,
+   "changed": 0,
+   "undet": 0
+  },
+  "headline_contains": [
+   "예상 3개 중 2개만",
+   "누락: q3"
+  ],
+  "headline_not_contains": [
+   "전부에서 상위 결과의 내용·순위·점수는 같고"
+  ]
+ }
+}

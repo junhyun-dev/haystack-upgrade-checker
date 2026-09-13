@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}근거 — {{ title }}{% endblock %}
+{% block body %}
+<section class="card">
+  <p><a href="javascript:history.back()">← 돌아가기</a>{% if rid %} · <a href="/runs/{{ rid }}">점검 {{ rid }}</a>{% endif %}</p>
+  <h1>{{ title }}</h1>
+  <p class="muted">원문: {{ origin }}</p>
+  <article class="doc">{{ body|safe }}</article>
+</section>
+{% endblock %}

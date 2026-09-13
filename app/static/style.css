@@ -1,0 +1,43 @@
+:root{--bg:#f6f7f9;--card:#fff;--ink:#1c1e21;--muted:#6b7280;--line:#e5e7eb;--ok:#15803d;--warn:#b45309;--err:#b91c1c;--pri:#1d4ed8}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans KR",sans-serif}
+header.top{display:flex;gap:16px;align-items:baseline;padding:12px 20px;background:#111827;color:#fff;flex-wrap:wrap}
+header .brand{color:#fff;font-weight:700;text-decoration:none;font-size:16px}header .sub{color:#9ca3af}header nav{margin-left:auto}header nav a{color:#d1d5db;margin-left:12px}
+main{max-width:1200px;margin:0 auto;padding:16px 20px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px 20px;margin-bottom:16px}
+h1{font-size:18px;margin:0 0 8px}h2{font-size:16px;margin:0 0 8px}h3{font-size:14px;margin:12px 0 6px}
+.muted{color:var(--muted)}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px 16px;align-items:end}
+label{display:flex;flex-direction:column;gap:4px;font-size:13px}label.check{flex-direction:row;align-items:center}
+select,input{padding:6px 8px;border:1px solid var(--line);border-radius:6px;font:inherit}
+button{padding:6px 12px;border:1px solid var(--line);border-radius:6px;background:#fff;cursor:pointer;font:inherit}button.primary{background:var(--pri);color:#fff;border-color:var(--pri)}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;vertical-align:top;padding:6px 8px;border-bottom:1px solid var(--line)}
+.badge{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;background:#e5e7eb}.badge.done{background:#dcfce7;color:var(--ok)}.badge.running,.badge.queued{background:#fef3c7;color:var(--warn)}.badge.failed{background:#fee2e2;color:var(--err)}
+.tag{display:inline-block;padding:0 6px;border-radius:4px;background:#eef2ff;font-size:12px}.tag.ok{background:#dcfce7;color:var(--ok)}.tag.warn{background:#fef3c7;color:var(--warn)}.tag.changed{background:#fee2e2;color:var(--err)}
+.row{display:flex;gap:16px;align-items:end;flex-wrap:wrap;margin:8px 0}
+.progress{display:none;margin-top:8px}.progress.on{display:block}.progress pre{background:#0b1020;color:#c7d2fe;padding:8px;border-radius:6px;max-height:220px;overflow:auto;font-size:12px}
+.error{background:#fee2e2;color:var(--err);padding:8px;border-radius:6px;margin-top:8px}
+.explain{border-top:1px solid var(--line);padding:8px 0}.explain .text{background:#f9fafb;padding:8px;border-radius:6px}a.cite{font-weight:600}
+.fb{display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-top:6px}.pv{font-size:12px;margin-top:4px}
+article.doc{max-width:900px}article.doc pre{background:#f3f4f6;padding:8px;overflow:auto;border-radius:6px}article.doc table{font-size:12px}
+footer.foot{max-width:1200px;margin:0 auto;padding:8px 20px 24px;color:var(--muted);font-size:12px}
+
+.headline{padding:8px 10px;border-radius:6px;background:#eef2ff}.headline.ALL_SAME,.headline.IDONLY{background:#dcfce7}.headline.CHANGED{background:#fef3c7}.headline.PARTIAL,.headline.GLOBAL_ERROR,.headline.NO_RESULT,.headline.EMPTY{background:#fee2e2}
+table.pair{font-size:12px;margin:4px 0}table.pair tr.mark-idchanged td{background:#fef9c3}table.pair tr.mark-scorechanged td,table.pair tr.mark-moved td,table.pair tr.mark-replaced td,table.pair tr.mark-onlybefore td,table.pair tr.mark-onlyafter td{background:#fee2e2}
+
+.guide{margin:8px 0;padding:8px 10px;border-left:3px solid #1d4ed8;background:#f8fafc}.guide .tag{margin-right:4px}
+
+pre.log{background:#0b1020;color:#c7d2fe;padding:10px;border-radius:6px;max-height:70vh;overflow:auto;font-size:12px;white-space:pre-wrap}
+
+.badge.cancelled,.badge.interrupted,.badge.cancelling{background:#fee2e2;color:#b91c1c}
+
+.card.inner{border:1px solid var(--line);border-radius:6px;padding:10px 12px;margin:10px 0;background:#fbfdff}
+
+.steps{margin:6px 0 8px;padding-left:22px}
+.steps li{margin:2px 0}
+.steps .st-tag{font-size:11px}
+.st-done .st-tag,.st-carried .st-tag{background:#e6f4ea;color:#1e6b34}
+.st-running .st-tag{background:#fff4d6;color:#7a5200}
+.st-stopped .st-tag,.st-failed .st-tag,.st-interrupted .st-tag{background:#fde8e8;color:#8a1f1f}
+.st-pending{color:#666}
+
+.stopped-at{color:#8a1f1f}
+.row-actions a{display:block;margin-bottom:4px;font-size:12px}

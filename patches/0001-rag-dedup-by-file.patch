@@ -1,0 +1,45 @@
+--- a/open_webui/retrieval/utils.py
++++ b/open_webui/retrieval/utils.py
+@@ -4,6 +4,10 @@
+ import hashlib
+ import logging
+ import os
++
++# agent-project local patch 0001: optional per-file de-duplication of retrieval results (off = upstream behavior)
++RAG_DEDUP_BY_FILE = os.getenv('RAG_DEDUP_BY_FILE', 'false').lower() == 'true'
++RAG_DEDUP_CANDIDATE_MULTIPLIER = max(1, int(os.getenv('RAG_DEDUP_CANDIDATE_MULTIPLIER', '4') or 4))
+ import re
+ import time
+ from typing import Awaitable, Optional, Union
+@@ -666,6 +670,22 @@
+     # Sort the list based on distances
+     combined.sort(key=lambda x: x[0], reverse=True)
+ 
++    if RAG_DEDUP_BY_FILE:
++        # local patch 0001: prefer the best chunk of each distinct file first, then fill with the remaining best chunks
++        def _file_key(meta):
++            meta = meta or {}
++            return meta.get('file_id') or meta.get('name') or meta.get('source') or id(meta)
++        first_pass, seen, rest = [], set(), []
++        for item in combined:
++            key = _file_key(item[2])
++            if key in seen:
++                rest.append(item)
++            else:
++                seen.add(key)
++                first_pass.append(item)
++        combined = (first_pass + rest)[:k]
++        combined.sort(key=lambda x: x[0], reverse=True)
++
+     # Slice to keep only the top k elements
+     sorted_distances, sorted_documents, sorted_metadatas = zip(*combined[:k]) if combined else ([], [], [])
+ 
+@@ -738,7 +758,7 @@
+             if collection_name:
+                 result = query_doc(
+                     collection_name=collection_name,
+-                    k=k,
++                    k=(k * RAG_DEDUP_CANDIDATE_MULTIPLIER if RAG_DEDUP_BY_FILE else k),
+                     query_embedding=query_embedding,
+                 )
+                 if result is not None:

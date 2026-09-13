@@ -1,0 +1,61 @@
+{
+ "diff": {
+  "before": {
+   "label": "hs231",
+   "haystack": "2.31.0"
+  },
+  "after": {
+   "label": "hs31",
+   "haystack": "3.1.1"
+  },
+  "global": [
+   "RUNTIME_ERROR"
+  ],
+  "queries": [
+   {
+    "id": "q1",
+    "question": "synthetic q1",
+    "classes": [
+     "ID_CHANGED_SAME_CONTENT"
+    ],
+    "n_details": 0,
+    "details": [],
+    "latency_before_s": 0.001,
+    "latency_after_s": 0.001
+   },
+   {
+    "id": "q2",
+    "question": "synthetic q2",
+    "classes": [
+     "ID_CHANGED_SAME_CONTENT"
+    ],
+    "n_details": 0,
+    "details": [],
+    "latency_before_s": 0.001,
+    "latency_after_s": 0.001
+   }
+  ],
+  "summary": {}
+ },
+ "meta": {
+  "status": "done",
+  "conditions": {
+   "split": "all"
+  }
+ },
+ "expected_ids": [
+  "q1",
+  "q2"
+ ],
+ "expect": {
+  "state": "GLOBAL_ERROR",
+  "headline_contains": [
+   "질문별 판정을 집계하지 않음",
+   "실행이 실패"
+  ],
+  "headline_not_contains": [
+   "ID만 바뀌었다",
+   "동일 0"
+  ]
+ }
+}

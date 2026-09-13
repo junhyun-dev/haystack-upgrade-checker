@@ -1,0 +1,23 @@
+{
+ "diff": null,
+ "meta": {
+  "status": "failed",
+  "error": "step failed (exit 1): run_bundle.py",
+  "conditions": {
+   "split": "dev"
+  }
+ },
+ "expected_ids": [
+  "q1"
+ ],
+ "expect": {
+  "state": "NO_RESULT",
+  "headline_contains": [
+   "비교 결과 없음",
+   "failed"
+  ],
+  "headline_not_contains": [
+   "동일"
+  ]
+ }
+}

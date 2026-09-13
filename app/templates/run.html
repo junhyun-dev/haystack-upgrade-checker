@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+{% block title %}점검 {{ m.id }}{% endblock %}
+{% block body %}
+<section class="card">
+  <h1>점검 {{ m.id }} <span class="badge {{ m.status }}" id="status-badge">{{ m.status }}</span></h1>
+  <p class="muted">{{ m.created_at }} · {{ m.conditions.before }} → {{ m.conditions.after }} · {{ m.conditions.corpus }} · 질문 {{ m.conditions.split }} · k={{ m.conditions.k }}
+    {% if m.versions %} · haystack-ai {{ m.versions.before }} → {{ m.versions.after }}{% endif %}{% if m.git %} · git {{ m.git }}{% endif %}
+    {% if m.parent %} · <a href="/runs/{{ m.parent }}">이전 실행 {{ m.parent }}</a>{% endif %}
+    {% if m.resumed_from %} · <span class="tag ok">이어서 진행: {{ m.reused|join(', ') }}을(를) <a href="/runs/{{ m.resumed_from }}">{{ m.resumed_from }}</a>에서 가져옴</span>{% endif %}</p>
+  <div class="row">
+    <form method="post" action="/runs/{{ m.id }}/rerun"><button type="submit">같은 조건 재실행</button></form>
+    <form method="get" action="/runs/{{ m.id }}"><label>이전 결과와 비교
+      <select name="compare" onchange="this.form.submit()"><option value="">선택…</option>{% for o in others %}<option value="{{ o.id }}" {% if o.id == compare %}selected{% endif %}>{{ o.id }} ({{ o.status }})</option>{% endfor %}</select></label></form>
+  </div>
+  <div id="progress" class="progress {% if m.status in ['queued','running','cancelling'] %}on{% endif %}">
+    <div class="steps-head">진행: <b id="progress-count">{{ sview.done }}/{{ sview.total }}</b> 단계
+      <small class="muted">(끝났거나 가져온 단계 / 이 점검의 계획에 있는 단계{% if sview.derived %} · 이 점검은 단계 기록이 없던 판에서 만들어져 단계 문자열과 상태로 추정한 값{% endif %})</small></div>
+    <ol id="steps" class="steps">{% for s in sview.steps %}<li class="st-{{ s.state }}"><span class="st-label">{{ s.label }}</span> <span class="tag st-tag">{{ s.state_label }}</span>{% if s.note %} <small class="muted">{{ s.note }}</small>{% endif %}</li>{% endfor %}</ol>
+    <div>단계: <span id="step">{{ m.step }}</span>
+      {% if m.status in ['queued','running','cancelling'] %}<form method="post" action="/runs/{{ m.id }}/cancel" style="display:inline;margin-left:8px"><button type="submit" {% if m.status == 'cancelling' %}disabled{% endif %}>{{ '중단하는 중…' if m.status == 'cancelling' else '점검 중단' }}</button></form>
+      <small class="muted">중단하면 이 단계의 프로세스 그룹에 종료 신호를 보낸다. 여기까지 만들어진 파일은 남고 부분 결과로 표시된다. 공유 모델 서버와 다른 점검은 건드리지 않는다.</small>{% endif %}</div>
+    <pre id="log"></pre>
+  </div>
+  {% if m.status == 'cancelling' %}<div class="error"><b>중단 요청됨:</b> 단계 "{{ m.step }}"를 정리하는 중이다. 종료가 확인되면 "중단됨"으로 바뀐다.</div>{% endif %}
+  {% if resume_msg == 'blocked' %}<div class="error">가져올 수 있는 결과가 없어 이어서 진행하지 않았다. 아래 "이미 남은 결과"의 이유를 보고 같은 조건으로 새로 실행한다.</div>{% endif %}
+  {% if rplan %}<div class="card inner" id="remaining">
+    <h3>이미 남은 결과 {% if rplan.blocked %}<span class="tag changed">가져오지 않음</span>{% elif rplan.reuse %}<span class="tag ok">{{ rplan.reuse|length }}개 가져올 수 있음</span>{% else %}<span class="tag warn">가져올 것 없음</span>{% endif %}</h3>
+    <p class="muted">조건: {{ m.conditions.before }} → {{ m.conditions.after }} · {{ m.conditions.corpus }} · 질문 {{ m.conditions.split }} · top-k {{ m.conditions.k }} · 설명 생성 {{ '켬' if m.conditions.explain else '끔' }} · 검색 기준선 {{ '켬' if m.conditions.retrieval else '끔' }}</p>
+    {% if rplan.blocked %}<p class="error">{{ rplan.blocked }}</p>{% endif %}
+    <table><thead><tr><th>산출물</th><th>있음</th><th>새 점검에 가져오기</th><th>이유</th></tr></thead><tbody>
+    {% for it in rplan.artifacts %}<tr><td>{{ it.name }}</td><td>{{ '있음' if it.exists else '—' }}</td>
+      <td>{% if it.reuse %}<span class="tag ok">가져옴</span>{% else %}<span class="tag">다시 실행</span>{% endif %}</td>
+      <td><small>{{ it.why }}</small></td></tr>{% endfor %}
+    </tbody></table>
+    <div class="row">
+      {% if rplan.reuse and not rplan.blocked %}<form method="post" action="/runs/{{ m.id }}/resume"><button type="submit" class="primary">가져올 수 있는 결과를 안고 이어서 진행</button></form>{% endif %}
+      <form method="post" action="/runs/{{ m.id }}/rerun"><button type="submit">같은 조건으로 처음부터</button></form>
+    </div>
+    <p class="muted"><small>이어서 진행해도 이 점검의 파일은 그대로 두고 새 점검을 만든다. 새 점검은 무엇을 어디서 가져왔는지 기록한다. 검색 기준선은 그때의 색인을 잰 값이라 언제나 다시 잰다.</small></p>
+  </div>{% endif %}
+  {% if m.status in ['cancelled','interrupted'] %}<div class="error"><b>{{ '사용자가 중단함' if m.status == 'cancelled' else '앱 재시작으로 중단됨' }}:</b> 중단 시점 단계 "{{ m.step }}". 여기까지의 파일은 부분이다.
+    <br><small>{% if m.status == 'cancelled' %}종료 신호를 보냈고, 그 단계의 프로세스 그룹은 {{ {'empty':'비었음을 확인했다','remaining':'신호 뒤에도 일부가 남아 있었다','unknown':'상태를 확인하지 못했다'}.get(m.stop_scope, '상태를 확인하지 못했다') }}.{% else %}작업 스레드만 사라진 상태이며, 그때 돌던 프로세스가 남아 있는지 앱은 확인하지 못한다(이름으로 다른 프로세스를 찾아 끄지 않는다).{% endif %}
+    <a href="/runs/{{ m.id }}/log">실행 로그 열기</a></small></div>{% endif %}
+  {% if m.status == 'failed' %}<div class="error"><b>실패:</b> {{ m.error }}<br><small><a href="/runs/{{ m.id }}/log">실행 로그 열기</a> (runtime/eval/runs/{{ m.id }}/log.txt)</small></div>{% endif %}
+</section>
+
+{% if cmp %}
+<section class="card">
+  <h2>비교: {{ cmp.a.run }} (이전) → {{ cmp.b.run }} (이번)</h2>
+  <table><thead><tr><th>항목</th><th>이전</th><th>이번</th><th></th></tr></thead><tbody>
+  {% for k in ['git','classes','diff_judgments_human','diff_judgments_ai','explanations','cited_ratio','ungrounded_sentences','pinned_sources','explain_latency_s','recall@3_dev','trap_hits_dev','recall@3_eval','trap_hits_eval'] %}
+    <tr><td>{{ k }}</td><td>{{ cmp.a[k] }}</td><td>{{ cmp.b[k] }}</td><td>{% if cmp.a[k] != cmp.b[k] %}<span class="tag changed">변경</span>{% endif %}</td></tr>
+  {% endfor %}
+  </tbody></table>
+  <p class="muted">숫자는 두 실행의 JSON에서 그대로 읽은 값입니다. 개선 여부는 사람이 근거를 보고 판단합니다.</p>
+</section>
+{% endif %}
+
+{% if summary %}
+<section class="card">
+  <h2>전후 결과 차이 (이 점검 안: haystack-ai {{ m.versions.before if m.versions else m.conditions.before }} → {{ m.versions.after if m.versions else m.conditions.after }})</h2>
+  <p class="headline {{ summary.state }}"><b>{{ summary.headline }}</b></p>
+  {% for n in summary.notes %}<p class="error">{{ n }}</p>{% endfor %}
+  <div class="guide" id="guide"><b>다음 행동:</b> {{ guide_text }}<br>
+    {% for a in guide_actions %}{% if a.kind == 'rerun' %}<form method="post" action="/runs/{{ m.id }}/rerun" style="display:inline"><button type="submit">{{ a.label }}</button></form>{% else %}<a class="tag" href="{{ a.href }}">{{ a.label }}</a>{% endif %} {% endfor %}
+    <a class="tag" href="/">목록으로</a></div>
+  {% if jsum.can_judge %}<p id="judgments">차이 판정: <span class="tag ok">사람 {{ jsum.human }}</span> <span class="tag">AI Main {{ jsum.ai }}</span> <span class="tag warn">미판정 {{ jsum.unjudged }}</span> <small class="muted">(행 {{ jsum.rows }}개 기준, 이 비교의 판정만 셈{% if jsum.past %}; 과거·미확인 {{ jsum.past }}건은 행에 남기고 세지 않음{% endif %}. 판정은 등급 계산에 영향을 주지 않으며, 사람 판정만이 사용자 확인이다.)</small></p>{% endif %}
+  {% if summary.state not in ['NO_RESULT'] %}
+  <p class="muted">보기:
+    {% for t in ['all','same','idonly','changed','undet'] %}<a class="tag {{ 'changed' if tier == t else '' }}" href="/runs/{{ m.id }}?tier={{ t }}{% if compare %}&compare={{ compare }}{% endif %}#diff">{{ '전체' if t == 'all' else tier_label[t] }} {{ summary.total_rows if t == 'all' else summary.counts[t] }}</a> {% endfor %}
+    <small>— 보기는 표시만 좁히고 위 집계(분모 {{ summary.total_rows }}행)는 바뀌지 않는다.</small></p>
+  <p class="muted"><small>{{ summary.guarantee }}{% if summary.expected_total is not none %} 예상 질문 {{ summary.expected_total }}개 중 행 {{ summary.total_rows }}개.{% endif %}
+    {% if summary.global %} 전역 표시: {% for g in summary.global %}<span class="tag warn">{{ g }}</span>{% endfor %}{% else %} corpus fingerprint·chunk 수·파이프라인 설정 동일.{% endif %}</small></p>
+  {% endif %}
+  {% if diff and diff.queries %}
+  <table id="diff"><thead><tr><th>질문</th><th>등급</th><th>분류</th><th>근거 (상위 목록 이전 | 이후)</th><th>이 차이의 판정</th><th>지연 (전/후)</th><th>검색 미리보기</th></tr></thead><tbody>
+  {% for q in diff.queries %}{% set t = summary.rows.get(q.id, 'undet') %}{% if tier == 'all' or t == tier %}
+    <tr>
+      <td><b>{{ q.id }}</b> <small class="muted">({{ qmap[q.id].version if q.id in qmap else '' }})</small><br><small>{{ q.question }}</small></td>
+      <td><span class="tag {{ 'ok' if t == 'same' else 'warn' if t == 'idonly' else 'changed' }}">{{ tier_label[t] }}</span>{% if summary.state == 'GLOBAL_ERROR' %}<br><small class="muted">참고용(집계 제외)</small>{% endif %}</td>
+      <td><small>{% for c in q.classes %}{{ c }}{% if not loop.last %}, {% endif %}{% endfor %}</small></td>
+      <td>{% if q.id in aligned %}<details><summary>상위 {{ aligned[q.id]|length }}개 나란히 보기</summary>
+        <table class="pair"><thead><tr><th>#</th><th>이전 (문서 · id · 점수)</th><th>이후 (문서 · id · 점수)</th><th>표시</th></tr></thead><tbody>
+        {% for r in aligned[q.id] %}<tr class="mark-{{ r.mark }}"><td>{{ r.rank }}</td>
+          <td><small>{% if r.before %}<a href="/source/doc?name={{ (m.conditions.corpus|replace('version-','') ~ '__' ~ r.before.path|replace('/','__')|replace('.mdx','.md'))|urlencode }}">{{ r.before.path }}</a> · {{ r.before.id[:8] }} · {{ r.before.score }}{% else %}—{% endif %}</small></td>
+          <td><small>{% if r.after %}<a href="/source/doc?name={{ (m.conditions.corpus|replace('version-','') ~ '__' ~ r.after.path|replace('/','__')|replace('.mdx','.md'))|urlencode }}">{{ r.after.path }}</a> · {{ r.after.id[:8] }} · {{ r.after.score }}{% else %}—{% endif %}</small></td>
+          <td><small>{{ {'same':'동일','idchanged':'ID만 변경','scorechanged':'점수 변화','moved':'순위 이동','onlybefore':'이전에만','onlyafter':'이후에만','replaced':'교체'}[r.mark] }}</small></td></tr>{% endfor %}
+        </tbody></table></details>{% else %}<small class="muted">bundle 없음</small>{% endif %}
+        {% if q.details %}<small class="muted">{% for dd in q.details[:1] %}{{ dd.path or '' }}{% if dd.id_before %} id {{ dd.id_before }}→{{ dd.id_after }}{% endif %}{% endfor %}</small>{% endif %}</td>
+      <td class="judge">{% set jl = judg.get(q.id, []) %}{% set pj = prev_judg.get(q.id, []) %}
+        {% for j in jlink.get(q.id, []) %}<div><span class="tag {{ 'ok' if j.verdict == 'expected' else 'changed' if j.verdict == 'problem' else 'warn' }}">{{ {'expected':'예상됨','problem':'문제','unclear':'불명확'}.get(j.verdict, j.verdict) }}</span> <small>{{ '사람' if j.by == 'user' else 'AI Main' if j.by == 'main' else j.by }}{% if j.evidence and j.evidence != tier_label[t] %} · 당시 근거: {{ j.evidence }}{% endif %}{% if j.note %} · {{ j.note }}{% endif %}</small>
+          <br><small class="muted">{% if j.status == 'current' %}<span class="tag ok">이 비교의 판정</span> · 분류 {{ j.classes|join(', ') }}{% for ev in j.evidence_links %} · {{ ev.class }} 설명{% if ev.pairing == 'unknown' %}(참고: 이 비교와의 연결 기록 없음){% endif %}이 인용한 절: {% if ev.used %}{% for s in ev.used %}<a href="/runs/{{ m.id }}/evidence/{{ ev.class }}/{{ s.tag }}">[{{ s.tag }}] {{ s.heading }}</a>{% if not loop.last %}, {% endif %}{% endfor %}{% else %}없음(인용 표식 없는 설명){% endif %}{% if ev.candidates %} · 인용하지 않은 후보 {{ ev.candidates|map(attribute='tag')|join(', ') }}{% endif %}{% endfor %}{% if j.classes and not j.evidence_links %} · 이 비교의 설명 없음{% endif %}
+          {% else %}<span class="tag">과거·미확인 판정</span> {{ {'identity-missing':'(비교 고정 이전 기록)','no-comparison':'(지금 비교 결과가 없음)','identity-differs':'(다른 비교에서 한 판정, 그 뒤 비교가 다시 계산됨)','row-missing':'(지금 비교에 없는 행)','classes-differ':'(기록된 분류가 지금 행과 다름)'}[j.why] }} · 분류 {{ j.classes|join(', ') if j.classes else '없음' }}{% if j.classes_from == 'current' %} (지금 행 기준, 참고){% endif %} · 현재 집계·근거에 넣지 않음{% endif %}
+          <span class="muted">(근거 링크는 지금 MIGRATION.md의 해당 절을 연다)</span></small></div>{% endfor %}
+        {% for j in pj %}<div class="muted"><small>이전 실행: {{ {'expected':'예상됨','problem':'문제','unclear':'불명확'}.get(j.verdict, j.verdict) }} ({{ '사람' if j.by == 'user' else 'AI Main' if j.by == 'main' else j.by }}){% if j.evidence and j.evidence != tier_label[t] %} · 당시 {{ j.evidence }} → 지금 {{ tier_label[t] }}{% endif %}</small></div>{% endfor %}
+        {% if jsum.can_judge %}<details><summary>{{ '판정 추가' if jl else '판정' }}</summary><form method="post" action="/runs/{{ m.id }}/feedback" class="fb">
+          <input type="hidden" name="target" value="diff:{{ q.id }}"><input type="hidden" name="evidence" value="{{ tier_label[t] }}">
+          <input type="hidden" name="classes" value="{{ q.classes|join(',') }}"><input type="hidden" name="diff_identity" value="{{ cur_identity }}">
+          <label>이 차이는 <select name="verdict"><option value="expected">예상됨</option><option value="problem">문제</option><option value="unclear">불명확</option></select></label>
+          <label>메모 <input name="note" size="24" placeholder="왜 그렇게 보는지"></label><button type="submit">기록</button></form></details>
+        {% elif not jl %}<small class="muted">판정 대상 아님</small>{% endif %}</td>
+      <td><small>{{ q.latency_before_s }}s / {{ q.latency_after_s }}s</small></td>
+      <td><button type="button" onclick="preview('{{ q.id }}', {{ q.question|tojson }}, '{{ qmap[q.id].version if q.id in qmap else '3.1' }}')">Open WebUI 검색</button><div id="pv-{{ q.id }}" class="pv"></div></td>
+    </tr>
+  {% endif %}{% endfor %}
+  </tbody></table>
+  {% endif %}
+</section>
+{% endif %}
+
+{% if pending_pins %}
+<section class="card">
+  <h2>다음 재실행에 반영될 신고</h2>
+  <table><thead><tr><th>분류</th><th>추가될 근거 (MIGRATION.md 절)</th><th>신고</th></tr></thead><tbody>
+  {% for cls, pins, unmatched in pending_pins %}{% for p in pins %}<tr><td>{{ cls }}</td><td>{{ p.heading }}</td><td><small>{{ p.report.verdict }} · {{ p.report.note }} ({{ p.report.by }}, {{ p.report.run }})</small></td></tr>{% endfor %}
+  {% for u in unmatched %}<tr><td>{{ cls }}</td><td><span class="tag changed">근거 제목 못 찾음</span> <small>{{ u.evidence }}</small></td><td><small>{{ u.verdict }} · {{ u.note }} ({{ u.by }}, {{ u.run }})</small></td></tr>{% endfor %}{% endfor %}
+  </tbody></table>
+  <p class="muted">"같은 조건 재실행"을 누르면 위 근거가 해당 분류의 설명 원문 목록에 추가되어 함께 인용 대상이 됩니다. 신고의 판정은 바뀌지 않으며 사람이 다시 판정합니다.</p>
+</section>
+{% endif %}
+
+{% if ex %}
+<section class="card" id="explanations">
+  <h2>변경 이유 설명 (로컬 LLM, 원문 인용 강제)</h2>
+  {% for e in ex.explanations %}
+    <div class="explain">
+      <h3><span class="tag warn">{{ e.class }}</span> <small class="muted">예: {{ e.example_query }} · 문장 {{ e.sentences }} · 인용 {{ e.cited }} · NO SOURCE {{ e.no_source }} · 비인용 {{ e.ungrounded }} · {{ e.latency_s }}s{% if e.truncated %} · <span class="tag changed">잘림(finish={{ e.finish_reason }})</span>{% endif %}</small></h3>
+      <p class="text">{{ e.html|safe }}</p>
+      {% if cjudg.get(e.class) %}{% set cj = cjudg[e.class] %}<p class="muted" id="judged-{{ e.class }}">이 비교에서 이 분류의 행 판정: <span class="tag ok">예상됨 {{ cj.expected }}</span> <span class="tag changed">문제 {{ cj.problem }}</span> <span class="tag warn">불명확 {{ cj.unclear }}</span> · 사람 {{ cj.human }}{% if cj.qids %} · 행 {{ cj.qids|join(', ') }}{% endif %}{% if cj.past %} · 과거·미확인 {{ cj.past }}건은 넣지 않음{% endif %}
+        · 이 설명은 {% if explain_pair == 'this' %}이 비교에 대해 만들어졌다{% elif explain_pair == 'other' %}<span class="tag changed">다른 비교</span>에 대해 만들어졌다(행 판정과 잇지 않음){% else %}어느 비교로 만들어졌는지 기록이 없다(참고){% endif %}. 아래 "근거"는 검색된 후보 목록이고 본문의 [S번호]가 실제 인용이다.</p>{% endif %}
+      <p class="muted">근거: {% for s in e.sources %}<a href="/runs/{{ m.id }}/evidence/{{ e.class }}/{{ s.tag }}">[{{ s.tag }}] {{ s.heading }}</a>{% if s.pinned %} <span class="tag ok">신고 반영</span>{% endif %}{% if not loop.last %} · {% endif %}{% endfor %}</p>
+      {% if e.pinned %}<p class="muted">신고로 추가된 근거: {% for p in e.pinned %}[{{ p.tag }}] {{ p.heading }} ← {{ p.report.verdict }} ({{ p.report.by }}, {{ p.report.run }}){% if not loop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+      {% if e.unmatched_reports %}<p class="error">반영하지 못한 신고(근거 제목을 MIGRATION.md에서 찾지 못함): {% for u in e.unmatched_reports %}"{{ u.evidence }}" ({{ u.by }}, {{ u.run }}){% if not loop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+      {% if e.ungrounded_sentences %}<p class="error">비인용 문장: {% for s in e.ungrounded_sentences %}"{{ s }}" {% endfor %}</p>{% endif %}
+      <details><summary>이 설명·근거에 신고/메모</summary>
+        <form method="post" action="/runs/{{ m.id }}/feedback" class="fb">
+          <input type="hidden" name="target" value="explain:{{ e.class }}">
+          <label>판정 <select name="verdict"><option value="wrong">틀림</option><option value="missed">놓침</option><option value="unclear">불명확</option><option value="correct">맞음</option></select></label>
+          <label>근거 <input name="evidence" placeholder="[S1] 제목 또는 문장" size="40"></label>
+          <label>메모 <input name="note" placeholder="무엇이 어떻게 틀렸는지" size="50"></label>
+          <button type="submit">기록</button>
+        </form></details>
+    </div>
+  {% endfor %}
+</section>
+{% endif %}
+
+{% if ret.dev or ret.eval %}
+<section class="card">
+  <h2>Open WebUI 검색 기준선 (같은 질문, 지식 저장소 검색만·LLM 없음)</h2>
+  {% for split in ['dev','eval'] %}{% if ret[split] %}
+    <h3>{{ split }} · recall@3 {{ ret[split].summary.mean_recall }} · 버전 함정 적중 {{ ret[split].summary.trap_hits }} · 오류 {{ ret[split].summary.errors }}</h3>
+    <table><thead><tr><th>질문</th><th>recall</th><th>기대 문서</th><th>검색된 문서 (열기)</th><th>신고</th></tr></thead><tbody>
+    {% for r in ret[split].results %}
+      <tr><td><b>{{ r.id }}</b> <small class="muted">{{ r.version }}</small></td>
+        <td>{% if r.error %}<span class="tag warn">오류</span> <small>{{ r.error[:80] }}</small>{% else %}{{ r.recall }}{% if r.trap_hit %} <span class="tag warn">함정</span>{% endif %}{% endif %}</td>
+        <td><small>{% for e in r.expected %}{{ e }}{% if e in r.found %} ✓{% endif %}<br>{% endfor %}</small></td>
+        <td><small>{% for h in r.hits %}<a href="/source/doc?name={{ h|urlencode }}">{{ h }}</a><br>{% endfor %}</small></td>
+        <td><details><summary>신고</summary><form method="post" action="/runs/{{ m.id }}/feedback" class="fb">
+          <input type="hidden" name="target" value="retrieval:{{ r.id }}">
+          <label>판정 <select name="verdict"><option value="missed">놓침</option><option value="wrong">틀림</option><option value="unclear">불명확</option><option value="correct">맞음</option></select></label>
+          <label>근거 <input name="evidence" placeholder="기대/검색된 문서명" size="30"></label>
+          <label>메모 <input name="note" size="30"></label><button type="submit">기록</button></form></details></td></tr>
+    {% endfor %}
+    </tbody></table>
+  {% endif %}{% endfor %}
+</section>
+{% endif %}
+
+<section class="card" id="feedback">
+  <h2>신고·메모 ({{ fb|length }})</h2>
+  {% if prev_fb %}<p class="muted">이전 실행 {{ m.parent }}의 신고 {{ prev_fb|length }}건: {% for f in prev_fb %}<span class="tag">{{ f.target }}={{ f.verdict }}</span> {% endfor %} — 이번 결과를 보고 판정을 다시 남기면 전후가 이어집니다.</p>{% endif %}
+  {% if not fb %}<p class="muted">이 실행에 대한 신고가 없습니다.</p>{% endif %}
+  <table><thead><tr><th>대상</th><th>판정</th><th>근거</th><th>메모</th><th>기록자</th><th>시각</th></tr></thead><tbody>
+  {% for f in fb %}<tr><td>{{ f.target }}</td><td><span class="tag {{ 'ok' if f.verdict == 'correct' else 'warn' }}">{{ f.verdict }}</span></td><td><small>{{ f.evidence }}</small></td><td><small>{{ f.note }}</small></td><td>{{ '사람' if f.by == 'user' else 'AI Main' if f.by == 'main' else f.by }}</td><td><small>{{ f.created_at or '' }}</small></td></tr>{% endfor %}
+  </tbody></table>
+  <p class="muted">파일: eval/feedback.yaml. 브라우저 폼의 기록은 사람(<code>by: user</code>), Main이 원문 대조 뒤 남긴 기록은 AI Main(<code>by: main</code>)이며 사람 판정만이 사용자 확인이다. 재실행 결과와 함께 비교 화면에 나옵니다.</p>
+</section>
+
+<script>
+const rid = {{ m.id|tojson }};
+async function poll() {
+  const r = await fetch(`/runs/${rid}/status`); const s = await r.json();
+  document.getElementById('step').textContent = s.step || '';
+  if (s.steps) {
+    document.getElementById('progress-count').textContent = s.steps.done + '/' + s.steps.total;
+    document.getElementById('steps').innerHTML = s.steps.steps.map(x => `<li class="st-${x.state}"><span class="st-label">${x.label}</span> <span class="tag st-tag">${x.state_label}</span>${x.note ? ' <small class="muted">' + x.note + '</small>' : ''}</li>`).join('');
+  }
+  document.getElementById('log').textContent = (s.log || []).join('\n');
+  document.getElementById('status-badge').textContent = s.status; document.getElementById('status-badge').className = 'badge ' + s.status;
+  if (s.status === 'queued' || s.status === 'running' || s.status === 'cancelling') setTimeout(poll, 2000); else if (document.getElementById('progress').classList.contains('on')) location.reload();
+}
+if (document.getElementById('progress').classList.contains('on')) poll();
+async function preview(qid, q, version) {
+  const el = document.getElementById('pv-' + qid); el.textContent = '검색 중…';
+  const r = await fetch(`/preview?q=${encodeURIComponent(q)}&version=${encodeURIComponent(version)}&k=3`); const d = await r.json();
+  if (d.error) { el.textContent = '오류: ' + d.error; return; }
+  el.innerHTML = d.hits.map(h => `<a href="/source/doc?name=${encodeURIComponent(h.name)}">${h.name}</a> <small>${h.distance}</small>`).join('<br>')
+    + `<br><a target="_blank" rel="noopener" href="{{ openwebui }}/?models=qwen3-4b&q=${encodeURIComponent(q)}">Open WebUI에서 이 질문 열기 ↗</a>`;
+}
+</script>
+{% endblock %}

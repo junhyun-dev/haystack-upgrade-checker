@@ -1,0 +1,66 @@
+{
+ "diff": {
+  "before": {
+   "label": "hs231",
+   "haystack": "2.31.0"
+  },
+  "after": {
+   "label": "hs31",
+   "haystack": "3.1.1"
+  },
+  "global": [],
+  "queries": [
+   {
+    "id": "q1",
+    "question": "synthetic q1",
+    "classes": [
+     "IDENTICAL"
+    ],
+    "n_details": 0,
+    "details": [],
+    "latency_before_s": 0.001,
+    "latency_after_s": 0.001
+   },
+   {
+    "id": "q2",
+    "question": "synthetic q2",
+    "classes": [
+     "QUERY_MISSING_AFTER"
+    ],
+    "n_details": 0,
+    "details": [],
+    "latency_before_s": 0.001,
+    "latency_after_s": 0.001
+   }
+  ],
+  "summary": {}
+ },
+ "meta": {
+  "status": "done",
+  "conditions": {
+   "split": "all"
+  }
+ },
+ "expected_ids": [
+  "q1",
+  "q2",
+  "q3"
+ ],
+ "expect": {
+  "state": "PARTIAL",
+  "counts": {
+   "same": 1,
+   "idonly": 0,
+   "changed": 0,
+   "undet": 1
+  },
+  "headline_contains": [
+   "예상 3개 중 2개만",
+   "판정 불가 1개",
+   "전체 동등성은 주장하지 않는다"
+  ],
+  "headline_not_contains": [
+   "모두 상위 결과가 동일"
+  ]
+ }
+}

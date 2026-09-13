@@ -1,0 +1,45 @@
+{
+ "diff": {
+  "before": {
+   "label": "hs231",
+   "haystack": "2.31.0"
+  },
+  "after": {
+   "label": "hs31",
+   "haystack": "3.1.1"
+  },
+  "global": [
+   "SPLIT_CHANGED"
+  ],
+  "queries": [
+   {
+    "id": "q1",
+    "question": "synthetic q1",
+    "classes": [
+     "ID_CHANGED_SAME_CONTENT"
+    ],
+    "n_details": 0,
+    "details": [],
+    "latency_before_s": 0.001,
+    "latency_after_s": 0.001
+   }
+  ],
+  "summary": {}
+ },
+ "meta": {
+  "status": "done",
+  "conditions": {
+   "split": "all"
+  }
+ },
+ "expected_ids": [
+  "q1"
+ ],
+ "expect": {
+  "state": "IDONLY",
+  "notes_contains": [
+   "조건 변화",
+   "SPLIT_CHANGED"
+  ]
+ }
+}

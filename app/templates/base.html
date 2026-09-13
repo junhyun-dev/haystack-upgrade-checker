@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}업그레이드 점검 도우미{% endblock %}</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/">업그레이드 점검 도우미</a>
+  <span class="sub">Haystack 버전 업그레이드 전후 비교 · 로컬 전용 (127.0.0.1:8090)</span>
+  <nav><a href="/">점검 내역</a> <a href="{{ openwebui or 'http://localhost:8080' }}" target="_blank" rel="noopener">Open WebUI 열기 ↗</a></nav>
+</header>
+<main>{% block body %}{% endblock %}</main>
+<footer class="foot">
+  자기 구현: 점검 실행·diff·설명·신고·재실행·비교 (<code>slice/</code>, <code>eval/</code>, <code>app/</code>). 재사용: Open WebUI(문서 지식·검색 API·채팅, 브랜딩 그대로), llama.cpp + Qwen3-4B(로컬 CPU 추론), Haystack 공식 문서(Apache-2.0).
+  설명은 로컬 모델 출력이며 인용된 원문과 사람의 판정이 근거다.
+</footer>
+</body>
+</html>

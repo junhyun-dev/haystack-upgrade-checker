@@ -1,0 +1,77 @@
+{
+ "diff": {
+  "before": {
+   "label": "hs231",
+   "haystack": "2.31.0"
+  },
+  "after": {
+   "label": "hs31",
+   "haystack": "3.1.1"
+  },
+  "global": [],
+  "queries": [
+   {
+    "id": "q1",
+    "question": "synthetic q1",
+    "classes": [
+     "IDENTICAL"
+    ],
+    "n_details": 0,
+    "details": [],
+    "latency_before_s": 0.001,
+    "latency_after_s": 0.001
+   },
+   {
+    "id": "q2",
+    "question": "synthetic q2",
+    "classes": [
+     "IDENTICAL"
+    ],
+    "n_details": 0,
+    "details": [],
+    "latency_before_s": 0.001,
+    "latency_after_s": 0.001
+   },
+   {
+    "id": "q3",
+    "question": "synthetic q3",
+    "classes": [
+     "IDENTICAL"
+    ],
+    "n_details": 0,
+    "details": [],
+    "latency_before_s": 0.001,
+    "latency_after_s": 0.001
+   }
+  ],
+  "summary": {}
+ },
+ "meta": {
+  "status": "done",
+  "conditions": {
+   "split": "all"
+  }
+ },
+ "expected_ids": [
+  "q1",
+  "q2",
+  "q3"
+ ],
+ "expect": {
+  "state": "ALL_SAME",
+  "counts": {
+   "same": 3,
+   "idonly": 0,
+   "changed": 0,
+   "undet": 0
+  },
+  "headline_contains": [
+   "3개 질문 모두"
+  ],
+  "headline_not_contains": [
+   "ID만 바뀌었다",
+   "회귀",
+   "개선"
+  ]
+ }
+}

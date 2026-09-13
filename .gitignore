@@ -1,0 +1,9 @@
+runtime/
+.venv/
+.venv-*/
+vendor/
+corpus/haystack-docs-src/
+__pycache__/
+*.pyc
+.env
+*.secret

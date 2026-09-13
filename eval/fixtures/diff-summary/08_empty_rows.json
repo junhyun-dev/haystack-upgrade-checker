@@ -1,0 +1,32 @@
+{
+ "diff": {
+  "before": {
+   "label": "hs231",
+   "haystack": "2.31.0"
+  },
+  "after": {
+   "label": "hs31",
+   "haystack": "3.1.1"
+  },
+  "global": [],
+  "queries": [],
+  "summary": {}
+ },
+ "meta": {
+  "status": "done",
+  "conditions": {
+   "split": "all"
+  }
+ },
+ "expected_ids": [],
+ "expect": {
+  "state": "EMPTY",
+  "headline_contains": [
+   "0행"
+  ],
+  "headline_not_contains": [
+   "동일 0",
+   "모두"
+  ]
+ }
+}

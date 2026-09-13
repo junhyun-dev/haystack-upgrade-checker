@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}실행 로그 {{ m.id }}{% endblock %}
+{% block body %}
+<section class="card">
+  <p><a href="/runs/{{ m.id }}">← 점검 {{ m.id }}</a> · <a href="/">목록</a></p>
+  <h1>실행 로그 <span class="badge {{ m.status }}">{{ m.status }}</span></h1>
+  <p class="muted">파일: {{ path }}{% if m.error %} · 실패 원인: {{ m.error }}{% endif %}</p>
+  {% if state == 'ok' and body %}<pre class="log">{{ body }}</pre>
+  {% elif state == 'ok' %}<p class="error">로그 파일은 있지만 비어 있다. 실행이 단계 기록 전에 끝났을 수 있다.</p>
+  {% elif state == 'none' %}<p class="error">이 점검에는 실행 로그가 없다. {% if m.origin == 'shell' %}터미널(slice/run_all.sh)에서 만든 실행이라 앱이 로그를 남기지 않았다.{% else %}실행이 시작되기 전에 실패했거나 파일이 지워졌다.{% endif %}</p>
+  {% else %}<p class="error">로그를 읽지 못했다: {{ body }}</p>{% endif %}
+</section>
+{% endblock %}
